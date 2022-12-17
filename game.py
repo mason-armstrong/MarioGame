@@ -1,7 +1,9 @@
 import pygame
 
 from pygame.locals import *
+from array import *
 from abc import ABC, abstractmethod
+#Mason Armstrong Assignment 8 - Python Mario Game
 
 
 class Sprite(ABC):
@@ -17,6 +19,7 @@ class Sprite(ABC):
         self.vertVelocity = 3.2
         self.onPipeTop = False
         self.onGround = False
+        self.bounceCount = 0
 
     def isPipe():
         return False
@@ -43,20 +46,23 @@ class Sprite(ABC):
             self.vertVelocity = 0
         self.vertVelocity += 3.2
         self.rect.y += self.vertVelocity
-        self.timeInAir += 1
-        
-        if self.rect.y >= 600 - self.rect.height:        
-            self.rect.bottom = 600 - self.rect.height
-            self.vertVelocity = 0
-            self.timeInAir = 0
+        self.timeInAir += 1  
 
     @abstractmethod
     def update(self):
-        pass
+      pass
+  
+    def draw(self, screen, scrollX):
+        screen.blit(
+                    self.image, (self.rect.left - scrollX, self.rect.top)
+                )
 
     def collisionHandler(self, sprite):
-        pass
-
+        if not isinstance(sprite, (Ground, Pipe, Mushroom, Goomba)):
+            if pygame.Rect.colliderect(self.rect, sprite.rect):
+                sprite.rect.y = self.rect.top - sprite.rect.height
+                sprite.timeInAir = 0
+                sprite.vertVelocity = 0      
 
 class Pipe(Sprite):
     def __init__(self, x, y, image):
@@ -67,7 +73,9 @@ class Pipe(Sprite):
 
     def update(self):
         pass
-
+    
+    def collisionHandler(self, sprite):
+        pass
 
 class Mario(Sprite):
     def __init__(self, x, y, image) -> None:
@@ -83,10 +91,12 @@ class Mario(Sprite):
         self.onPipeTop = False
         self.canShootBall = True
         self.timeInAir = 0
+        self.isDead = False
+        self.movingRight = True
 
     def isMario():
         return 1
-
+#wfeef
     def jump(self):
         self.timeInAir += 1
         if self.timeInAir < 50:
@@ -94,21 +104,32 @@ class Mario(Sprite):
         if self.onPipeTop and self.timeInAir < 50:
             self.rect.y -= 30
 
-    def changeImage(self):
+    def changeImage(self, movingRight):
+        self.movingRight = movingRight
         self.currentImage += 1
         if self.currentImage > 4:
             self.currentImage = 0
-        self.image = self.mario_images[self.currentImage]
-
+        if movingRight == False:
+            self.image = self.mario_images[self.currentImage]
+            self.image = pygame.transform.flip(self.image, True, False)
+        else:
+            self.image = self.mario_images[self.currentImage]
+            
     def update(self):
-        self.gravity()
-
+        self.gravity()        
+        pass
     def collisionHandler(self, sprite):
         self.onPipeTop = False
         self.onGround = False
-     #   if sprite.isGround == 1:
-     #       self.onGround = True
-      #      return
+
+        if self.py >= sprite.rect.top + sprite.rect.y:
+            self.rect.top = sprite.rect.top - sprite.rect.y
+            
+        if self.py + self.rect.height <= sprite.rect.top:
+            self.rect.top = sprite.rect.top - self.rect.height
+            self.onPipeTop = True
+            self.timeInAir = 0
+            return
             
         if (self.px + self.rect.width <= sprite.rect.left) and (
             self.rect.right > sprite.rect.left
@@ -120,20 +141,7 @@ class Mario(Sprite):
         ):
             self.rect.left = sprite.rect.left + sprite.rect.width
             return
-        if sprite.rect.top <= self.rect.bottom:
-            self.timeInAir = 0
-        if self.py + self.rect.height <= sprite.rect.top:
-            self.rect.top = sprite.rect.top - self.rect.height
-            self.onPipeTop = True
-            if(sprite.isGround == True):
-                self.onGround = True
-            self.timeInAir = 0
-            return
-        if self.py >= sprite.rect.top + sprite.rect.height:
-            self.rect.top = sprite.rect.top + sprite.rect.height
-            return
-
-
+    
 class Goomba(Sprite):
     def __init__(self, x, y, image) -> None:
         super().__init__(x, y, image)
@@ -153,9 +161,16 @@ class Goomba(Sprite):
         self.currentImage = 1
         self.Alive = False
 
-    def collisionHandler(self, sprite):
-           
+    def collisionHandler(self, sprite):            
+        if self.py >= sprite.rect.top + sprite.rect.y:
+            self.rect.top = sprite.rect.top - sprite.rect.y                  
             
+        if self.py + self.rect.height <= sprite.rect.top:
+            self.rect.top = sprite.rect.top - self.rect.height
+            self.onPipeTop = True
+            self.timeInAir = 0
+            return
+                   
         if (self.px + self.rect.width <= sprite.rect.left) and (
             self.rect.right > sprite.rect.left
         ):
@@ -173,44 +188,28 @@ class Goomba(Sprite):
         ):
             self.rect.left = sprite.rect.left + sprite.rect.width
             self.moveRight = True
+            
             if sprite.isFireball == 1:
                 self.Alive = False
                 self.image = self.goomba_images[1]
                 self.time = pygame.time.get_ticks()
             return
-
 
         if sprite.rect.top <= self.rect.bottom:
             self.timeInAir = 0
             if sprite.isFireball == 1:
                 self.Alive = False
                 self.image = self.goomba_images[1]
-                self.time = pygame.time.get_ticks()
-
-        if self.py + self.rect.height <= sprite.rect.top:
-            if(sprite.isGround == True):
-                self.onGround = True
-            self.timeInAir = 0
-            self.rect.top = sprite.rect.top - self.rect.height
-
-            return
-            
-        if self.py >= sprite.rect.top + sprite.rect.height:
-            self.rect.top = sprite.rect.top + sprite.rect.height
-            
-            return
+                self.time = pygame.time.get_ticks()         
 
     def update(self):
-        self.gravity()
         self.setPreviousPosition()
-       # print(self.rect)
         if self.Alive:
             if self.moveRight:
                 self.rect.x += 3
             else:
                 self.rect.x -= 3
-        
-       
+        self.gravity()
        
     def goombaDie(self):
         self.Alive = False
@@ -220,15 +219,18 @@ class Goomba(Sprite):
 class Fireball(Sprite):
     def __init__(self, x, y, image) -> None:
         super().__init__(x, y, image)
-
         self.rightFacing = True
         self.bounceCount = 0
-        self.isFireball = 1
         self.time = pygame.time.get_ticks()
         self.Alive = True
+        self.isFireball = True
 
+    def isFireball():
+        return True
+    
     def update(self):
         self.setPreviousPosition()
+        self.gravity()
         self.timeInAir += 1
         if self.rightFacing:
             self.rect.x += 5
@@ -240,70 +242,89 @@ class Fireball(Sprite):
             self.rect.y -= 10
             self.bounceCount += 1
         self.vertVelocity -= 2.5
-        self.gravity()
+        
+    def collisionHandler(self, sprite):
+        pass   
         
 class Ground(Sprite):
     def __init__(self, x, y, image) -> None:
-        super().__init__(x, y, image)
-        
-        self.currentImage = 0
-        self.ground_images = [
-            pygame.image.load("1280ground.png"),
-            pygame.image.load("ground3.png"),
-        ]
-        self.image = self.ground_images[self.currentImage]
-        
-        self.outline = pygame.transform.laplacian(self.ground_images[self.currentImage])
-        self.rect = self.outline.get_rect()
-        self.rect.x = self.rect.centerx - 844 
-        self.rect.y = self.rect.centery + 499
-        
-        
+        super().__init__(x, y, image)        
+      #  pygame.transform.scale(image,(0,20))
+        self.rect.x = self.rect.centerx - 200 
+        self.rect.top = self.rect.centery + 575     
+        self.groundBlock = pygame.image.load("Groundblock.png")
+        self.groundRect = self.groundBlock.get_rect()
+        self.surface = pygame.Surface((self.groundRect.width, self.groundRect.height))
+        self.surface.fill((255,0,0))
+        self.groundArr = []
         
     def update(self):
-        print(self.rect)
-        pass
-       
+        pass 
     def isGround():
-        return True
+        return True    
     
-    def collisionHandler(self, sprite):
-        return super().collisionHandler(sprite)
-    
-    
-    
-    
+    #def draw(self, screen, scrollX):
 
+
+       # screen.blit(self.image, (self.rect.x - scrollX, self.rect.y))     
+
+        
+    
+class Mushroom(Sprite):
+    def __init__(self, x, y, image) -> None:
+        super().__init__(x, y, image)
+        self.rect.y = self.rect.centery + 50
+        self.yDir = 1 
+    def update(self):
+        self.rect.y += 2 * self.yDir
+        if self.rect.y + self.rect.h > 700:
+            self.yDir *= -1
+        if self.rect.y  < 10:
+            self.yDir *= -1
+
+    def isGround():
+         return True    
+     
 class Model:
     def __init__(self):
         self.spriteList = []
-        self.mario = Mario(0, 0, "mario1.png")
+        self.mario = Mario(50, 10, "mario1.png")
+        self.p1 = Pipe(350, 350, "pipe.png")
+        self.p2 = Pipe(250, 400, "pipe.png")
+        self.p3 = Pipe(450, 300, "pipe.png")
+        self.p4 = Pipe(740, 350, "pipe.png")
+        self.p5 = Pipe(740, 350, "pipe.png")
+        self.p6 = Pipe(900, 450, "pipe.png")
 
-        self.p1 = Pipe(120, 500, "pipe.png")
-        self.p2 = Pipe(270, 400, "pipe.png")
-        self.p3 = Pipe(400, 300, "pipe.png")
-        self.p4 = Pipe(520, 380, "pipe.png")
-        self.p5 = Pipe(690, 480, "pipe.png")
-        self.p6 = Pipe(800, 450, "pipe.png")
-
-        self.g1 = Goomba(250, 250, "goomba.png")
-        self.g2 = Goomba(800, 15, "goomba.png")
-        self.ground = Ground(0, 0, "1280ground.png")
+        self.g1 = Goomba(550, 50, "goomba.png")
+        self.g2 = Goomba(850, 50, "goomba.png")
+        self.g3 = Goomba(900, 0, "goomba.png")
         
-        self.spriteList = [  self.mario, self.g1, self.g2 ]
-        self.pipeList = [ self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.ground]
+        self.ground = Ground(0, 0, "ground.png")
+        self.mushroom = Mushroom(-5, 50, "mushroom_platform.png")
+        
+        self.spriteList = [self.mario, self.g1, self.g2, self.g3 ]
+        self.pipeList = [ self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.ground, self.mushroom]
         for pipe in self.pipeList:
             self.spriteList.append(pipe)
-
+            
+        self.playerDead = self.mario.isDead
 
     def shootFireball(self):
         ball = Fireball(self.mario.rect.x, self.mario.rect.y, "fireball.png")
         self.spriteList.append(ball)
+        
+    def generateGround(self):
+        pass
 
-    def update(self):
-
+    def update(self):    
+        if self.mario.rect.y > 1500:
+            self.playerDead = True    
         for sprite in self.spriteList:
             sprite.update()
+            if(pygame.Rect.colliderect(sprite.rect, self.ground.rect)):
+                self.ground.collisionHandler(sprite)
+            
             marioPipeCheck = self.mario.rect.colliderect(sprite.rect)
             if marioPipeCheck:
                 self.mario.collisionHandler(sprite)
@@ -312,79 +333,50 @@ class Model:
                 for pipe in self.spriteList:
                     goombaPipeCheck = g.rect.colliderect(pipe.rect)
                     if goombaPipeCheck:
-                        print(goombaPipeCheck)
+                        
                         g.collisionHandler(pipe)
                 #Check goomba death time
                 if g.time is not None:
                     if pygame.time.get_ticks() - g.time >= 500:
                         self.spriteList.remove(g)
-            if sprite.isFireball:
-                b = sprite
-                if b.time is not None:
-                    if pygame.time.get_ticks() - g.time >= 1500:
-                        self.spriteList.remove(b)
-
-
+                
 class View:
     def __init__(self, model):
-
         global SCREEN_WIDTH
         SCREEN_WIDTH = 1280
         global SCREEN_HEIGHT
-        SCREEN_HEIGHT = 720
+        SCREEN_HEIGHT = 720 
         self.screen_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
         self.screen = pygame.display.set_mode(self.screen_size, 32)
         self.model = model
-     #   self.currentGroundImage = 0
         self.viewScroll = 0
-
-     #   self.ground_images = [
-      #      pygame.image.load("1280ground.png"),
-     #       pygame.image.load("ground3.png"),
-     #   ]
-      #  self.ground_image = self.ground_images[0]
         self.backgroundImage = pygame.image.load("backgroundImage.png")
-    #    self.ground_rect = self.ground_image.get_rect()
-        self.mapWidth = 0
+        self.death_screen = pygame.image.load("death_screen.png")
         self.scrollX = 0
-    #    self.ground_rect.x = self.ground_rect.centerx - 844
-    #    self.ground_rect.y = self.ground_rect.centery + 499
-        self.backgroundImage =  pygame.transform.scale(self.backgroundImage, (self.screen_size))
-    ##    self.groundOutline = pygame.transform.laplacian(self.ground_image)
-     #   self.groundOutlineRect = self.ground_rect
-       
-       
-    @staticmethod
-    def getGroundOutline(self):
-        return self.groundOutline
-        
+        self.backgroundImage =  pygame.transform.scale(self.backgroundImage, (self.screen_size))     
 
     def update(self):
-        self.scrollX = self.model.mario.rect.x - 50
-     #   self.model.groundRect = self.ground_rect
-        self.screen.fill([0, 181, 226])
-        self.screen.blit(self.backgroundImage, (0, 20))
-       
-
-        for sprite in self.model.spriteList:
-            self.screen.blit(
-                sprite.image, (sprite.rect.left - self.scrollX, sprite.rect.top)
-            )
-   #     self.screen.blit(
-   #         self.ground_image, ((self.ground_rect.x - self.scrollX), self.ground_rect.y)
-    #    )
-     #   self.screen.blit(
-     #       self.groundOutline, ((self.groundOutlineRect.x - self.scrollX), self.groundOutlineRect.y)
-      #  )
-
+        if self.model.playerDead == True:
+             self.screen.blit(self.backgroundImage, (self.screen_size))
+             self.screen.blit(self.death_screen, (100,80) )
+             pygame.display.flip()
+        else:
+            self.scrollX = self.model.mario.rect.x - 50
+            self.screen.fill([9, 155, 196,1])
+            self.screen.blit(self.backgroundImage, (0, 20))
+          #  for sprite in self.model.spriteList:
+            #    self.screen.blit(
+            #       sprite.image, (sprite.rect.left - self.scrollX, sprite.rect.top)
+             #   )
+            for sprite in self.model.spriteList:
+                sprite.draw(self.screen, self.scrollX)  
         pygame.display.flip()
-
 
 class Controller:
     def __init__(self, model):
         self.model = model
         self.keep_going = True
-
+        
     def update(self):
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -399,10 +391,10 @@ class Controller:
         keys = pygame.key.get_pressed()
         if keys[K_LEFT]:
             self.model.mario.rect.x -= 5
-            self.model.mario.changeImage()
+            self.model.mario.changeImage(False)
         if keys[K_RIGHT]:
             self.model.mario.rect.x += 5
-            self.model.mario.changeImage()
+            self.model.mario.changeImage(True)
         if keys[K_SPACE]:
             self.model.mario.timeInAir += 1
             self.model.mario.jump()
@@ -410,13 +402,13 @@ class Controller:
             self.model.shootFireball()
             self.model.mario.canShootBall = False
 
-
 print("Use the arrow keys to move. Press Esc to quit.")
 pygame.init()
 clock = pygame.time.Clock()
 m = Model()
 v = View(m)
 c = Controller(m)
+
 while c.keep_going:
     c.update()
     m.update()
